@@ -1,0 +1,14 @@
+*--------------------------------------------------------------------*
+*& Report ZBXB_TB_CHECK_CKFRKF_QUERIES
+*&---------------------------------------------------------------------*
+*& Identify and download list of CKF/RKFs which are not used in Queries
+*&---------------------------------------------------------------------*
+*& Change-ID  Date        Developer      Description
+*& &0000                                 Initial version
+*&---------------------------------------------------------------------*
+REPORT zbxb_tb_check_ckfrkf_queries.
+
+INCLUDE zbxb_tb_check_data_declare. " Data Declaration
+
+START-OF-SELECTION.
+INCLUDE zbxb_tb_check_data_impl.    " Data Implementation
