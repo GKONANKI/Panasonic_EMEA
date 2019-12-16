@@ -1,5 +1,5 @@
 # Panasonic_EMEA
-Panasonic EMA repository
+
 SAP BW Obsolete Calculated Key-figure (CKF) /Restricted Key-Figure (RKF) Identification.
 
 For Calculated Key-figure (CKF) and Restricted Key-figure (RKF) Housekeeping, identify the list of obsolete CKF/RKFs which are not used in SAP BW Business Explorer Queries/Workbooks.
