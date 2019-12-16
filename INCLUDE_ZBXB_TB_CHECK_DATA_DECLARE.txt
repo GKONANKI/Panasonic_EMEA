@@ -1,0 +1,149 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZBXB_TB_CHECK_DATA_DECLARE
+*&---------------------------------------------------------------------*
+
+TABLES:
+  rszcompkey.
+
+TYPES: BEGIN OF ty_icube,
+       compuid      TYPE rszcompdir-compuid,
+       infocube     TYPE rszcompic-infocube,
+       objvers      TYPE rszcompdir-objvers,
+       compid       TYPE rszcompdir-compid,
+       txtlg        TYPE rszelttxt-txtlg,
+       END OF ty_icube.
+
+DATA: gv_path     TYPE string,
+      gv_ftype    TYPE char10 VALUE 'ASC',
+      gv_length   TYPE i,
+      gv_icube    TYPE rszcompkey-infocube.
+
+DATA:
+  it_icube TYPE STANDARD TABLE OF ty_icube,
+  it_cube_result TYPE STANDARD TABLE OF ty_icube,
+  wa_icube TYPE ty_icube.
+
+FIELD-SYMBOLS: <fs_s_icube>            TYPE any,
+               <fs_s_infcube>          TYPE rsd_infocube,
+               <fs_s_compuid>          TYPE rsz_uid,
+               <fs_s_objvers>          TYPE rs_objvers ,
+               <fs_s_compid>           TYPE rszcompdir-compid,
+               <fs_s_txtlg>            TYPE rszelttxt-txtlg,
+               <fs_t_icube>            TYPE any,
+               <fs_t_infcube>          TYPE rsd_infocube,
+               <fs_t_compuid>          TYPE rsz_uid,
+               <fs_t_objvers>          TYPE rs_objvers ,
+               <fs_t_compid>           TYPE rszcompdir-compid,
+               <fs_t_txtlg>            TYPE rszelttxt-txtlg,
+               <fs_t_remarks>          TYPE any,
+               <fs_t_flag>             TYPE any,
+               <fs_where_used_info>  TYPE rzd1_t_where_used_info,
+               <fs_element_uid>      TYPE rzd1_th_where_used_list,
+               <fs_workbook>         TYPE rzx0_t_workbook_list.
+
+SELECTION-SCREEN: BEGIN OF BLOCK block1 WITH FRAME TITLE TEXT-001.
+SELECT-OPTIONS: so_icube FOR rszcompkey-infocube NO INTERVALS OBLIGATORY.    "Input Info-provider
+SELECTION-SCREEN: END OF BLOCK block1.
+
+SELECTION-SCREEN: BEGIN OF BLOCK block2 WITH FRAME TITLE TEXT-002.
+PARAMETERS: pa_path TYPE rlgrap-filename
+                    DEFAULT '/interface/internal/ckf_rkf/',                  "File path
+            pa_file TYPE rlgrap-filename
+                    DEFAULT 'CKFRKF_List.csv'.                               "File format
+SELECTION-SCREEN: END OF BLOCK block2.
+
+
+CLASS cl_fetch_ckf_rkf DEFINITION.
+  PUBLIC SECTION.
+  METHODS: cube_input IMPORTING i_infocube TYPE rsd_infocube                                "Get records of CKF/RKF entries
+                                i_compuid  TYPE rsz_uid
+                                i_objvers TYPE rs_objvers
+                              EXPORTING e_where_used_info TYPE rzd1_t_where_used_info
+                                        e_element_uid TYPE rzd1_th_where_used_list
+                                        e_workbook TYPE rzx0_t_workbook_list,
+           cube_download IMPORTING i_icube_result TYPE STANDARD TABLE.                      "Create a File on the specified file path (Download)
+ENDCLASS.
+
+*&---------------------------------------------------------------------*
+*&       Class (Implementation)  cl_fetch_ckf_rkf
+*&---------------------------------------------------------------------*
+*        Text
+*----------------------------------------------------------------------*
+CLASS cl_fetch_ckf_rkf IMPLEMENTATION.
+
+
+METHOD cube_input.
+
+DATA:
+               lv_infocube         TYPE rsd_infocube,
+               lv_compuid          TYPE rsz_uid,
+               lv_objvers          TYPE rs_objvers ,
+               lv_where_used_info  TYPE rzd1_t_where_used_info,
+               lv_element_uid      TYPE rzd1_th_where_used_list,
+               lv_workbook         TYPE rzx0_t_workbook_list.
+
+lv_compuid  = i_compuid.
+lv_infocube = i_infocube.
+lv_objvers  = 'A'.
+
+CALL FUNCTION 'RSZ_DB_COMP_WHERE_USED'
+   EXPORTING
+     i_compuid                 = lv_compuid
+     i_objvers                 = lv_objvers
+     i_infocube                = lv_infocube
+   IMPORTING
+     e_t_workbook              = lv_workbook
+     e_th_element_uid          = lv_element_uid
+     e_t_where_used_info       = lv_where_used_info.
+     e_where_used_info         = lv_where_used_info.
+     e_element_uid             = lv_element_uid.
+     e_workbook                = lv_workbook.
+  ENDMETHOD.
+
+METHOD cube_download.
+DATA: lv_icube_results TYPE STANDARD TABLE OF ty_icube,
+        ls_icube_results TYPE ty_icube.
+        lv_icube_results = i_icube_result.
+DATA:   n_lv_yyyy(04)              TYPE n,
+        n_lv_mm(02)                TYPE n,
+        n_lv_dd(02)                TYPE n,
+        n_lv_h(02)                 TYPE n,
+        n_lv_m(02)                 TYPE n,
+        n_lv_s(02)                 TYPE n,
+        c_lv_sfile                 TYPE text128,
+        c_lv_temp                  TYPE text128,
+        c_lv_tfile                 TYPE text128,
+        c_ext                      TYPE string,
+        c_lv_ext_separator         TYPE char1 VALUE '.',
+        c_lv_separator             TYPE char1 VALUE '_'.
+
+* File Handling
+IF NOT pa_file IS INITIAL.
+  c_lv_temp = pa_file.
+  n_lv_yyyy = sy-datum(4).
+  n_lv_mm   = sy-datum+4(2).
+  n_lv_dd   = sy-datum+6(2).
+  n_lv_h    = sy-uzeit(2).
+  n_lv_m    = sy-uzeit+2(2).
+  n_lv_s    = sy-uzeit+4(2).
+  SPLIT c_lv_temp AT '.' INTO c_lv_tfile c_ext.
+
+  CONCATENATE c_lv_tfile c_lv_separator n_lv_yyyy n_lv_mm n_lv_dd n_lv_h n_lv_m n_lv_s
+  c_lv_ext_separator c_ext
+  INTO c_lv_tfile.
+
+  CONCATENATE : pa_path c_lv_tfile INTO gv_path .
+  OPEN DATASET gv_path FOR OUTPUT IN TEXT MODE ENCODING DEFAULT.
+  IF sy-subrc <> 0.
+      WRITE:/ 'File cannot be created'.
+      EXIT.
+  ENDIF.
+LOOP AT lv_icube_results INTO ls_icube_results.
+TRANSFER ls_icube_results TO gv_path.
+ENDLOOP.
+WRITE:/ 'File transferred to ', gv_path.
+CLOSE DATASET gv_path.
+ENDIF.
+ENDMETHOD.
+ENDCLASS.               "cl_fetch_ckf_rkf
+END-OF-SELECTION.

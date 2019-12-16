@@ -1,0 +1,85 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZBXB_TB_CHECK_DATA_IMPL
+*&---------------------------------------------------------------------*
+
+DATA: cl_fetch_dt TYPE REF TO cl_fetch_ckf_rkf,
+      cl_download_dt TYPE REF TO cl_fetch_ckf_rkf,
+      lc_ckf(3) TYPE c VALUE 'CKF',
+      lc_sel(3) TYPE c VALUE 'SEL',
+      lv_infocube TYPE rsd_infocube,
+      lr_result         type ref to data,
+      lv_compuid  TYPE rsz_uid,
+      lv_objvers  TYPE rs_objvers ,
+      lv_compid   TYPE rszcompdir-compid,
+      lv_txtlg    TYPE rszelttxt-txtlg,
+      lv_where_used_info  TYPE rzd1_t_where_used_info,
+      lv_element_uid      TYPE rzd1_th_where_used_list,
+      lv_workbook         TYPE rzx0_t_workbook_list.
+
+IF so_icube[] IS NOT INITIAL.
+
+SELECT compuid infocube objvers compid txtlg FROM v_compdir_compic      "Fetch CKF/RKF entries
+       INTO TABLE it_icube
+       FOR ALL ENTRIES IN so_icube WHERE infocube = so_icube-low
+                                   AND objvers = 'A'
+                                   AND deftp IN (lc_ckf, lc_sel).
+  IF sy-subrc <> 0.
+    EXIT.
+  ENDIF.
+
+ SORT it_icube BY compuid compid DESCENDING.
+ DELETE ADJACENT DUPLICATES FROM it_icube COMPARING compuid compid.
+LOOP AT it_icube ASSIGNING <fs_s_icube>.
+ASSIGN COMPONENT: 'COMPUID'   OF STRUCTURE <fs_s_icube> TO <fs_s_compuid>,
+                  'INFOCUBE'  OF STRUCTURE <fs_s_icube> TO <fs_s_infcube>,
+                  'OBJVERS'   OF STRUCTURE <fs_s_icube> TO <fs_s_objvers>,
+                  'COMPID'    OF STRUCTURE <fs_s_icube> TO <fs_s_compid>,
+                  'TXTLG'     OF STRUCTURE <fs_s_icube> TO <fs_s_txtlg>.
+
+
+lv_compuid = <fs_s_compuid>.
+lv_infocube = <fs_s_infcube>.
+lv_objvers = <fs_s_objvers>.
+lv_compid = <fs_s_compid>.
+lv_txtlg  = <fs_s_txtlg>.
+
+CREATE OBJECT cl_fetch_dt.
+CALL METHOD cl_fetch_dt->cube_input                                  "Validate CKF/RKF used in Queries
+EXPORTING i_infocube = lv_infocube
+          i_compuid  = lv_compuid
+          i_objvers  = lv_objvers
+IMPORTING
+          e_where_used_info = lv_where_used_info
+          e_element_uid = lv_element_uid
+          e_workbook  = lv_workbook .
+
+DATA: lv_remark(60) TYPE c.
+
+create data lr_result like it_cube_result.
+  assign lr_result->* to <fs_t_icube>.
+
+IF lv_where_used_info IS INITIAL AND
+   lv_element_uid IS INITIAL AND
+   lv_workbook IS INITIAL.
+
+ASSIGN COMPONENT: 'COMPUID'   OF STRUCTURE <fs_s_icube> TO <fs_t_compuid>,
+                  'INFOCUBE'  OF STRUCTURE <fs_s_icube> TO <fs_t_infcube>,
+                  'OBJVERS'   OF STRUCTURE <fs_s_icube> TO <fs_t_objvers>,
+                  'COMPID'    OF STRUCTURE <fs_s_icube> TO <fs_t_compid>,
+                  'TXTLG'     OF STRUCTURE <fs_s_icube> TO <fs_t_txtlg>.
+
+<fs_t_compuid>    =   <fs_s_compuid>.
+<fs_t_infcube>    =   <fs_s_infcube>.
+<fs_t_compid>     =   <fs_s_compid>.
+<fs_t_txtlg>      =   <fs_s_txtlg>.
+
+APPEND <fs_s_icube> TO it_cube_result.
+
+ENDIF.
+
+ENDLOOP.
+ CREATE OBJECT cl_download_dt.
+ CALL METHOD cl_download_dt->cube_download                    "Download the CKF/RKFs which are not used in Queries
+ EXPORTING i_icube_result = it_cube_result.
+
+ENDIF.
